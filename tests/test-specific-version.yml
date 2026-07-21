@@ -1,0 +1,37 @@
+name: Test specific poetry version installation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PIP_BREAK_SYSTEM_PACKAGES: "1"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Pre-configure PATH for pipx
+        run: |
+          # Ensure ~/.local/bin is on PATH for all subsequent steps (including composite action steps)
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Pre-install pipx so the action's pipx ensurepath works correctly
+          pip install --user pipx || pip3 install --user pipx || true
+      - id: action
+        uses: .
+        with:
+          poetry-version: "1.8.3"
+      - name: Assert specific poetry version is installed
+        run: |
+          echo "Checking poetry version..."
+          echo "PATH: $PATH"
+          if ! command -v poetry >/dev/null 2>&1; then
+            echo "FAIL: poetry command not found"
+            echo "Contents of ~/.local/bin:"
+            ls -la "$HOME/.local/bin" 2>/dev/null || echo "(directory not found)"
+            exit 1
+          fi
+          POETRY_VERSION=$(poetry --version)
+          echo "actual: $POETRY_VERSION"
+          if ! echo "$POETRY_VERSION" | grep -q "1.8.3"; then
+            echo "FAIL: expected poetry version 1.8.3 but got: $POETRY_VERSION"
+            exit 1
+          fi
+          echo "PASS: poetry 1.8.3 is installed"
