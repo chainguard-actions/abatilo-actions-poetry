@@ -10,6 +10,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 |---------|-----|-----------------|
 | v3.0.0 | [`v3.0.0`](https://github.com/chainguard-actions/abatilo-actions-poetry/tree/v3.0.0) | [`7b6d33e`](https://github.com/abatilo/actions-poetry/commit/7b6d33e44b4f08d7021a1dee3c044e9c253d6439) |
 | v3.0.2 | [`v3.0.2`](https://github.com/chainguard-actions/abatilo-actions-poetry/tree/v3.0.2) | [`65c61ea`](https://github.com/abatilo/actions-poetry/commit/65c61eae400c65c9510a584af85138c1ae19bbc0) |
+| v4.0.0 | [`v4.0.0`](https://github.com/chainguard-actions/abatilo-actions-poetry/tree/v4.0.0) | [`3765cf6`](https://github.com/abatilo/actions-poetry/commit/3765cf608f2d4a72178a9fc5b918668e542b89b1) |
 
 ## Privacy
 
