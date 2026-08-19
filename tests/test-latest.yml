@@ -1,0 +1,31 @@
+name: Test poetry latest install
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Ensure pipx is available system-wide
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y pipx || true
+          pipx ensurepath || true
+          # Also make sure pipx is on PATH for subsequent steps
+          which pipx || python3 -m pip install --user pipx
+          python3 -m pipx ensurepath || true
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - id: action
+        uses: .
+        # poetry-version defaults to 'latest'
+      - name: Assert poetry is installed and runnable
+        run: |
+          echo "PATH: $PATH"
+          echo "Checking poetry version..."
+          POETRY_VERSION=$(poetry --version 2>&1) || POETRY_VERSION=$(~/.local/bin/poetry --version 2>&1) || true
+          echo "poetry output: $POETRY_VERSION"
+          if ! echo "$POETRY_VERSION" | grep -qi "poetry"; then
+            echo "FAIL: poetry does not appear to be installed"
+            exit 1
+          fi
+          echo "PASS: poetry is installed"

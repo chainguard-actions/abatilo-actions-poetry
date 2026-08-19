@@ -1,0 +1,30 @@
+name: Test poetry specific version install
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Ensure pipx is available system-wide
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y pipx || true
+          pipx ensurepath || true
+          which pipx || python3 -m pip install --user pipx
+          python3 -m pipx ensurepath || true
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - id: action
+        uses: .
+        with:
+          poetry-version: "1.8.3"
+      - name: Assert poetry version matches requested version
+        run: |
+          echo "Checking poetry version..."
+          POETRY_VERSION=$(poetry --version 2>&1) || POETRY_VERSION=$(~/.local/bin/poetry --version 2>&1) || true
+          echo "poetry output: $POETRY_VERSION"
+          if ! echo "$POETRY_VERSION" | grep -q "1.8.3"; then
+            echo "FAIL: expected poetry version 1.8.3 but got: $POETRY_VERSION"
+            exit 1
+          fi
+          echo "PASS: poetry 1.8.3 is installed"

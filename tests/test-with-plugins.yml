@@ -1,0 +1,41 @@
+name: Test poetry install with plugins
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Ensure pipx is available system-wide
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y pipx || true
+          pipx ensurepath || true
+          which pipx || python3 -m pip install --user pipx
+          python3 -m pipx ensurepath || true
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - id: action
+        uses: .
+        with:
+          poetry-version: "latest"
+          poetry-plugins: "poetry-plugin-export"
+      - name: Assert poetry is installed
+        run: |
+          echo "Checking poetry version..."
+          POETRY_VERSION=$(poetry --version 2>&1) || POETRY_VERSION=$(~/.local/bin/poetry --version 2>&1) || true
+          echo "poetry output: $POETRY_VERSION"
+          if ! echo "$POETRY_VERSION" | grep -qi "poetry"; then
+            echo "FAIL: poetry does not appear to be installed"
+            exit 1
+          fi
+          echo "PASS: poetry is installed"
+      - name: Assert poetry-plugin-export is installed
+        run: |
+          echo "Checking installed plugins..."
+          PLUGINS=$(poetry self show plugins 2>&1) || PLUGINS=$(~/.local/bin/poetry self show plugins 2>&1) || true
+          echo "plugins output: $PLUGINS"
+          if ! echo "$PLUGINS" | grep -qi "poetry-plugin-export"; then
+            echo "FAIL: poetry-plugin-export does not appear to be installed"
+            exit 1
+          fi
+          echo "PASS: poetry-plugin-export is installed"
