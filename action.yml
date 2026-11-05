@@ -45,7 +45,7 @@ runs:
       env:
         POETRY_VERSION: ${{ inputs.poetry-version }}
       run: |
-        pipx install "poetry==$POETRY_VERSION"
+        pipx install "poetry==${POETRY_VERSION}"
       shell: bash
     - if: ${{ inputs.poetry-plugins != '' }}
       env:
@@ -53,8 +53,7 @@ runs:
       run: |
         plugins=()
         if [ -n "$POETRY_PLUGINS" ]; then
-          while IFS= read -r -d '' t; do plugins+=("$t"); done \
-            < <(printf '%s' "$POETRY_PLUGINS" | xargs printf '%s\0')
+          read -r -d '' -a plugins <<< "$POETRY_PLUGINS" || true
         fi
         for PLUGIN in "${plugins[@]}"; do
           poetry self add "$PLUGIN"
