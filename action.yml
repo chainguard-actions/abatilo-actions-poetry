@@ -56,8 +56,9 @@ runs:
         POETRY_PLUGINS: ${{ inputs.poetry-plugins }}
       run: |
         plugins=()
-        while IFS= read -r -d '' t; do plugins+=("$t"); done \
-          < <(printf '%s' "$POETRY_PLUGINS" | xargs printf '%s\0')
+        if [ -n "$POETRY_PLUGINS" ]; then
+          read -r -d '' -a plugins <<< "$POETRY_PLUGINS" || true
+        fi
         for PLUGIN in "${plugins[@]}"; do
           poetry self add "$PLUGIN"
         done

